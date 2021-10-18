@@ -50,7 +50,7 @@
   "devDependencies": {
     "@babel/core": "^7.13.14",
     "@babel/plugin-proposal-class-properties": "^7.12.13",
-    "@babel/preset-env": "^7.13.10",
+    "@babel/preset-env": "^7.15.8",
     "@nuxt/types": "^2.15.4",
     "@nuxt/typescript-build": "^2.1.0",
     "@nuxtjs/color-mode": "^2.0.5",
