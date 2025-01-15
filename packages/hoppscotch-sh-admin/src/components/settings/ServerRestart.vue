@@ -22,6 +22,8 @@ import {
   EnableAndDisableSsoDocument,
   ResetInfraConfigsDocument,
   ToggleAnalyticsCollectionDocument,
+  ToggleSmtpDocument,
+  ToggleUserHistoryStoreDocument,
   UpdateInfraConfigsDocument,
 } from '~/helpers/backend/graphql';
 import { ServerConfigs } from '~/helpers/configs';
@@ -52,6 +54,11 @@ const updateAllowedAuthProviderMutation = useMutation(
 const toggleDataSharingMutation = useMutation(
   ToggleAnalyticsCollectionDocument
 );
+const toggleSMTPMutation = useMutation(ToggleSmtpDocument);
+
+const toggleUserHistoryStoreMutation = useMutation(
+  ToggleUserHistoryStoreDocument
+);
 
 // Mutation handlers
 const {
@@ -59,6 +66,8 @@ const {
   updateAuthProvider,
   resetInfraConfigs,
   updateDataSharingConfigs,
+  toggleSMTPConfigs,
+  toggleUserHistoryStore,
 } = useConfigHandler(props.workingConfigs);
 
 // Call relevant mutations on component mount and initiate server restart
@@ -109,6 +118,20 @@ onMounted(async () => {
     );
 
     if (!dataSharingResult) {
+      return triggerComponentUnMount();
+    }
+
+    const smtpResult = await toggleSMTPConfigs(toggleSMTPMutation);
+
+    if (!smtpResult) {
+      return triggerComponentUnMount();
+    }
+
+    const userHistoryStoreResult = await toggleUserHistoryStore(
+      toggleUserHistoryStoreMutation
+    );
+
+    if (!userHistoryStoreResult) {
       return triggerComponentUnMount();
     }
   }

@@ -50,6 +50,18 @@ export const ENV_NOT_FOUND_KEY_AUTH_PROVIDERS =
   '"VITE_ALLOWED_AUTH_PROVIDERS" is not present in .env file';
 
 /**
+ * Environment variable "DATA_ENCRYPTION_KEY" is not present in .env file
+ */
+export const ENV_NOT_FOUND_KEY_DATA_ENCRYPTION_KEY =
+  '"DATA_ENCRYPTION_KEY" is not present in .env file';
+
+/**
+ * Environment variable "DATA_ENCRYPTION_KEY" is changed in .env file
+ */
+export const ENV_INVALID_DATA_ENCRYPTION_KEY =
+  '"DATA_ENCRYPTION_KEY" value changed in .env file. Please undo the changes and restart the server';
+
+/**
  * Environment variable "VITE_ALLOWED_AUTH_PROVIDERS" is empty in .env file
  */
 export const ENV_EMPTY_AUTH_PROVIDERS =
@@ -480,7 +492,19 @@ export const USER_ENVIRONMENT_INVALID_ENVIRONMENT_NAME =
  */
 export const USER_HISTORY_NOT_FOUND = 'user_history/history_not_found' as const;
 
-/*
+/**
+ * User history deletion failed
+ * (UserHistoryService)
+ */
+export const USER_HISTORY_DELETION_FAILED =
+  'user_history/deletion_failed' as const;
+
+/**
+ * User history feature flag is disabled
+ * (UserHistoryService)
+ */
+export const USER_HISTORY_FEATURE_FLAG_DISABLED =
+  'user_history/feature_flag_disabled';
 
 /**
  * Invalid Request Type in History
@@ -679,6 +703,19 @@ export const MAILER_FROM_ADDRESS_UNDEFINED =
   'mailer/from_address_undefined' as const;
 
 /**
+ * MAILER_SMTP_USER environment variable is not defined
+ * (MailerModule)
+ */
+export const MAILER_SMTP_USER_UNDEFINED = 'mailer/smtp_user_undefined' as const;
+
+/**
+ * MAILER_SMTP_PASSWORD environment variable is not defined
+ * (MailerModule)
+ */
+export const MAILER_SMTP_PASSWORD_UNDEFINED =
+  'mailer/smtp_password_undefined' as const;
+
+/**
  * SharedRequest invalid request JSON format
  * (ShortcodeService)
  */
@@ -761,3 +798,82 @@ export const POSTHOG_CLIENT_NOT_INITIALIZED = 'posthog/client_not_initialized';
  * Inputs supplied are invalid
  */
 export const INVALID_PARAMS = 'invalid_parameters' as const;
+
+/**
+ * The provided label for the access-token is short (less than 3 characters)
+ * (AccessTokenService)
+ */
+export const ACCESS_TOKEN_LABEL_SHORT = 'access_token/label_too_short';
+
+/**
+ * The provided expiryInDays value is not valid
+ * (AccessTokenService)
+ */
+export const ACCESS_TOKEN_EXPIRY_INVALID = 'access_token/expiry_days_invalid';
+
+/**
+ * The provided PAT ID is invalid
+ * (AccessTokenService)
+ */
+export const ACCESS_TOKEN_NOT_FOUND = 'access_token/access_token_not_found';
+
+/**
+ * AccessTokens is expired
+ * (AccessTokenService)
+ */
+export const ACCESS_TOKEN_EXPIRED = 'TOKEN_EXPIRED';
+
+/**
+ * AccessTokens is invalid
+ * (AccessTokenService)
+ */
+export const ACCESS_TOKEN_INVALID = 'TOKEN_INVALID';
+
+/**
+ * AccessTokens is invalid
+ * (AccessTokenService)
+ */
+export const ACCESS_TOKENS_INVALID_DATA_ID = 'INVALID_ID';
+
+/**
+ * The provided label for the infra-token is short (less than 3 characters)
+ * (InfraTokenService)
+ */
+export const INFRA_TOKEN_LABEL_SHORT = 'infra_token/label_too_short';
+
+/**
+ * The provided expiryInDays value is not valid
+ * (InfraTokenService)
+ */
+export const INFRA_TOKEN_EXPIRY_INVALID = 'infra_token/expiry_days_invalid';
+
+/**
+ * The provided Infra Token ID is invalid
+ * (InfraTokenService)
+ */
+export const INFRA_TOKEN_NOT_FOUND = 'infra_token/infra_token_not_found';
+
+/**
+ * Authorization missing in header (Check 'Authorization' Header)
+ * (InfraTokenGuard)
+ */
+export const INFRA_TOKEN_HEADER_MISSING =
+  'infra_token/authorization_token_missing';
+
+/**
+ * Infra Token is invalid
+ * (InfraTokenGuard)
+ */
+export const INFRA_TOKEN_INVALID_TOKEN = 'infra_token/invalid_token';
+
+/**
+ * Infra Token is expired
+ * (InfraTokenGuard)
+ */
+export const INFRA_TOKEN_EXPIRED = 'infra_token/expired';
+
+/**
+ * Token creator not found
+ * (InfraTokenService)
+ */
+export const INFRA_TOKEN_CREATOR_NOT_FOUND = 'infra_token/creator_not_found';

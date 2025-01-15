@@ -1,16 +1,13 @@
 <template>
-  <div
-    v-if="workingConfigs"
-    class="md:grid md:grid-cols-3 md:gap-4 border-divider border-b"
-  >
-    <div class="pb-8 px-8 md:col-span-1">
+  <div v-if="workingConfigs" class="grid md:grid-cols-3 gap-8 md:gap-4">
+    <div class="md:col-span-1">
       <h3 class="heading">{{ t('configs.auth_providers.title') }}</h3>
       <p class="my-1 text-secondaryLight">
         {{ t('configs.auth_providers.description') }}
       </p>
     </div>
 
-    <div class="space-y-8 p-8 md:col-span-2">
+    <div class="space-y-8 sm:px-8 md:col-span-2">
       <section>
         <h4 class="font-semibold text-secondaryDark">
           {{ t('configs.auth_providers.title') }}
@@ -20,13 +17,21 @@
           v-for="provider in workingConfigs.providers"
           class="space-y-4 py-4"
         >
-          <div class="flex items-center">
+          <div class="flex justify-between">
             <HoppSmartToggle
               :on="provider.enabled"
               @change="provider.enabled = !provider.enabled"
             >
               {{ capitalize(provider.name) }}
             </HoppSmartToggle>
+            <HoppButtonSecondary
+              v-tippy="{ theme: 'tooltip', allowHTML: true }"
+              to="https://docs.hoppscotch.io/documentation/self-host/community-edition/prerequisites#oauth"
+              blank
+              :title="t('support.documentation')"
+              :icon="IconCircleHelp"
+              class="rounded hover:bg-primaryDark focus-visible:bg-primaryDark"
+            />
           </div>
 
           <div v-if="provider.enabled" class="ml-12">
@@ -70,6 +75,7 @@ import { useVModel } from '@vueuse/core';
 import { reactive } from 'vue';
 import { useI18n } from '~/composables/i18n';
 import { ServerConfigs, SsoAuthProviders } from '~/helpers/configs';
+import IconCircleHelp from '~icons/lucide/circle-help';
 import IconEye from '~icons/lucide/eye';
 import IconEyeOff from '~icons/lucide/eye-off';
 

@@ -242,10 +242,10 @@ const emit = defineEmits<{
 
 const addGroupImagePath = `${
   import.meta.env.VITE_ADMIN_URL
-}/assets/images/add_group.svg`;
+}/images/add_group.svg`;
 
 // Get Users List to extract email ids of all users
-const { data } = useQuery({ query: MetricsDocument });
+const { data } = useQuery({ query: MetricsDocument, variables: {} });
 const usersPerPage = computed(() => data.value?.infra.usersCount || 10000);
 
 const { list: usersList } = usePagedQuery(

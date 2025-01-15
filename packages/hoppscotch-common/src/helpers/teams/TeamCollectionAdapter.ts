@@ -27,7 +27,7 @@ import {
 } from "~/helpers/backend/graphql"
 import { HoppInheritedProperty } from "../types/HoppInheritedProperties"
 
-const TEAMS_BACKEND_PAGE_SIZE = 10
+export const TEAMS_BACKEND_PAGE_SIZE = 10
 
 /**
  * Finds the parent of a collection and returns the REFERENCE (or null)
@@ -324,10 +324,10 @@ export default class NewTeamCollectionAdapter {
 
       if (!parentCollection) return
 
+      // Prevent adding child collections to a collection that has not been expanded yet incoming from GQL subscription, during import, etc
+      // Hence, add entries to the pre-existing list without setting 'children' if it is `null'
       if (parentCollection.children !== null) {
         parentCollection.children.push(collection)
-      } else {
-        parentCollection.children = [collection]
       }
     }
 

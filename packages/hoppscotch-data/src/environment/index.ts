@@ -6,6 +6,7 @@ import { z } from "zod"
 
 import V0_VERSION from "./v/0"
 import V1_VERSION, { uniqueID } from "./v/1"
+import { HOPP_SUPPORTED_PREDEFINED_VARIABLES } from "../predefinedVariables"
 
 const versionedObject = z.object({
   v: z.number(),
@@ -58,12 +59,21 @@ export function parseBodyEnvVariablesE(
 
   while (result.match(REGEX_ENV_VAR) != null && depth <= ENV_MAX_EXPAND_LIMIT) {
     result = result.replace(REGEX_ENV_VAR, (key) => {
-      const found = env.find(
-        (envVar) => envVar.key === key.replace(/[<>]/g, "")
+      const variableName = key.replace(/[<>]/g, "")
+
+      // Prioritise predefined variable values over normal environment variables processing.
+      const foundPredefinedVar = HOPP_SUPPORTED_PREDEFINED_VARIABLES.find(
+        (preVar) => preVar.key === variableName
       )
 
-      if (found && "value" in found) {
-        return found.value
+      if (foundPredefinedVar) {
+        return foundPredefinedVar.getValue()
+      }
+
+      const foundEnv = env.find((envVar) => envVar.key === variableName)
+
+      if (foundEnv && "value" in foundEnv) {
+        return foundEnv.value
       }
       return key
     })
@@ -93,7 +103,8 @@ export function parseTemplateStringE(
   variables:
     | Environment["variables"]
     | { secret: true; value: string; key: string }[],
-  maskValue = false
+  maskValue = false,
+  showKeyIfSecret = false
 ) {
   if (!variables || !str) {
     return E.right(str)
@@ -101,12 +112,31 @@ export function parseTemplateStringE(
 
   let result = str
   let depth = 0
+  let isSecret = false
 
-  while (result.match(REGEX_ENV_VAR) != null && depth <= ENV_MAX_EXPAND_LIMIT) {
+  while (
+    result.match(REGEX_ENV_VAR) != null &&
+    depth <= ENV_MAX_EXPAND_LIMIT &&
+    !isSecret
+  ) {
     result = decodeURI(encodeURI(result)).replace(REGEX_ENV_VAR, (_, p1) => {
+      // Prioritise predefined variable values over normal environment variables processing.
+      const foundPredefinedVar = HOPP_SUPPORTED_PREDEFINED_VARIABLES.find(
+        (preVar) => preVar.key === p1
+      )
+
+      if (foundPredefinedVar) {
+        return foundPredefinedVar.getValue()
+      }
+
       const variable = variables.find((x) => x && x.key === p1)
 
       if (variable && "value" in variable) {
+        // Show the key if it is a secret and explicitly specified
+        if (variable.secret && showKeyIfSecret) {
+          isSecret = true
+          return `<<${p1}>>`
+        }
         // Mask the value if it is a secret and explicitly specified
         if (variable.secret && maskValue) {
           return "*".repeat(
@@ -144,10 +174,11 @@ export const parseTemplateString = (
   variables:
     | Environment["variables"]
     | { secret: true; value: string; key: string }[],
-  maskValue = false
+  maskValue = false,
+  showKeyIfSecret = false
 ) =>
   pipe(
-    parseTemplateStringE(str, variables, maskValue),
+    parseTemplateStringE(str, variables, maskValue, showKeyIfSecret),
     E.getOrElse(() => str)
   )
 

@@ -16,10 +16,12 @@ import {
 import { SessionType, User } from './user.model';
 import { USER_UPDATE_FAILED } from 'src/errors';
 import { PubSubService } from 'src/pubsub/pubsub.service';
-import { stringToJson, taskEitherValidateArraySeq } from 'src/utils';
+import { encrypt, stringToJson, taskEitherValidateArraySeq } from 'src/utils';
 import { UserDataHandler } from './user.data.handler';
 import { User as DbUser } from '@prisma/client';
 import { OffsetPaginationArgs } from 'src/types/input-types.args';
+import { GetUserWorkspacesResponse } from 'src/infra-token/request-response.dto';
+import { TeamMemberRole } from 'src/team/team.model';
 
 @Injectable()
 export class UserService {
@@ -114,7 +116,7 @@ export class UserService {
    * @param userUid User uid
    * @returns Either of User with updated refreshToken
    */
-  async UpdateUserRefreshToken(refreshTokenHash: string, userUid: string) {
+  async updateUserRefreshToken(refreshTokenHash: string, userUid: string) {
     try {
       const user = await this.prisma.user.update({
         where: {
@@ -174,6 +176,7 @@ export class UserService {
         displayName: userDisplayName,
         email: profile.emails[0].value,
         photoURL: userPhotoURL,
+        lastLoggedOn: new Date(),
         providerAccounts: {
           create: {
             provider: profile.provider,
@@ -207,8 +210,8 @@ export class UserService {
       data: {
         provider: profile.provider,
         providerAccountId: profile.id,
-        providerRefreshToken: refreshToken ? refreshToken : null,
-        providerAccessToken: accessToken ? accessToken : null,
+        providerRefreshToken: refreshToken ? encrypt(refreshToken) : null,
+        providerAccessToken: accessToken ? encrypt(accessToken) : null,
         user: {
           connect: {
             uid: user.uid,
@@ -221,7 +224,7 @@ export class UserService {
   }
 
   /**
-   * Update User displayName and photoURL
+   * Update User displayName and photoURL when logged in via a SSO provider
    *
    * @param user User object
    * @param profile Data received from SSO provider on the users account
@@ -236,6 +239,7 @@ export class UserService {
         data: {
           displayName: !profile.displayName ? null : profile.displayName,
           photoURL: !profile.photos ? null : profile.photos[0].value,
+          lastLoggedOn: new Date(),
         },
       });
       return E.right(updatedUser);
@@ -289,7 +293,7 @@ export class UserService {
   }
 
   /**
-   * Update a user's data
+   * Update a user's displayName
    * @param userUID User UID
    * @param displayName User's displayName
    * @returns a Either of User or error
@@ -312,6 +316,38 @@ export class UserService {
 
       return E.right(updatedUser);
     } catch (error) {
+      return E.left(USER_NOT_FOUND);
+    }
+  }
+
+  /**
+   * Update user's lastLoggedOn timestamp
+   * @param userUID User UID
+   */
+  async updateUserLastLoggedOn(userUid: string) {
+    try {
+      await this.prisma.user.update({
+        where: { uid: userUid },
+        data: { lastLoggedOn: new Date() },
+      });
+      return E.right(true);
+    } catch (e) {
+      return E.left(USER_NOT_FOUND);
+    }
+  }
+
+  /**
+   * Update user's lastActiveOn timestamp
+   * @param userUID User UID
+   */
+  async updateUserLastActiveOn(userUid: string) {
+    try {
+      await this.prisma.user.update({
+        where: { uid: userUid },
+        data: { lastActiveOn: new Date() },
+      });
+      return E.right(true);
+    } catch (e) {
       return E.left(USER_NOT_FOUND);
     }
   }
@@ -563,5 +599,53 @@ export class UserService {
     }
 
     return E.right(true);
+  }
+
+  async fetchUserWorkspaces(userUid: string) {
+    const user = await this.prisma.user.findUnique({ where: { uid: userUid } });
+    if (!user) return E.left(USER_NOT_FOUND);
+
+    const team = await this.prisma.team.findMany({
+      where: {
+        members: {
+          some: {
+            userUid,
+          },
+        },
+      },
+      include: {
+        members: {
+          select: {
+            userUid: true,
+            role: true,
+          },
+        },
+      },
+    });
+
+    const workspaces: GetUserWorkspacesResponse[] = [];
+    team.forEach((t) => {
+      const ownerCount = t.members.filter(
+        (m) => m.role === TeamMemberRole.OWNER,
+      ).length;
+      const editorCount = t.members.filter(
+        (m) => m.role === TeamMemberRole.EDITOR,
+      ).length;
+      const viewerCount = t.members.filter(
+        (m) => m.role === TeamMemberRole.VIEWER,
+      ).length;
+      const memberCount = t.members.length;
+
+      workspaces.push({
+        id: t.id,
+        name: t.name,
+        role: t.members.find((m) => m.userUid === userUid)?.role,
+        owner_count: ownerCount,
+        editor_count: editorCount,
+        viewer_count: viewerCount,
+        member_count: memberCount,
+      });
+    });
+    return E.right(workspaces);
   }
 }

@@ -22,6 +22,7 @@ import { ShortcodeService } from 'src/shortcode/shortcode.service';
 import { ConfigService } from '@nestjs/config';
 import { OffsetPaginationArgs } from 'src/types/input-types.args';
 import * as E from 'fp-ts/Either';
+import { UserHistoryService } from 'src/user-history/user-history.service';
 
 const mockPrisma = mockDeep<PrismaService>();
 const mockPubSub = mockDeep<PubSubService>();
@@ -34,6 +35,7 @@ const mockTeamCollectionService = mockDeep<TeamCollectionService>();
 const mockMailerService = mockDeep<MailerService>();
 const mockShortcodeService = mockDeep<ShortcodeService>();
 const mockConfigService = mockDeep<ConfigService>();
+const mockUserHistoryService = mockDeep<UserHistoryService>();
 
 const adminService = new AdminService(
   mockUserService,
@@ -47,6 +49,7 @@ const adminService = new AdminService(
   mockMailerService,
   mockShortcodeService,
   mockConfigService,
+  mockUserHistoryService,
 );
 
 const invitedUsers: InvitedUsers[] = [
@@ -74,6 +77,8 @@ const dbAdminUsers: DbUser[] = [
     refreshToken: 'refreshToken',
     currentRESTSession: '',
     currentGQLSession: '',
+    lastLoggedOn: new Date(),
+    lastActiveOn: new Date(),
     createdOn: new Date(),
   },
   {
@@ -85,20 +90,11 @@ const dbAdminUsers: DbUser[] = [
     refreshToken: 'refreshToken',
     currentRESTSession: '',
     currentGQLSession: '',
+    lastLoggedOn: new Date(),
+    lastActiveOn: new Date(),
     createdOn: new Date(),
   },
 ];
-const dbNonAminUser: DbUser = {
-  uid: 'uid 3',
-  displayName: 'displayName',
-  email: 'email@email.com',
-  photoURL: 'photoURL',
-  isAdmin: false,
-  refreshToken: 'refreshToken',
-  currentRESTSession: '',
-  currentGQLSession: '',
-  createdOn: new Date(),
-};
 
 describe('AdminService', () => {
   describe('fetchInvitedUsers', () => {
@@ -297,6 +293,17 @@ describe('AdminService', () => {
 
       const result = await adminService.getTeamRequestsCount();
       expect(result).toEqual(10);
+    });
+  });
+
+  describe('deleteAllUserHistory', () => {
+    test('should resolve right and delete all user history', async () => {
+      mockUserHistoryService.deleteAllHistories.mockResolvedValueOnce(
+        E.right(true),
+      );
+
+      const result = await adminService.deleteAllUserHistory();
+      expect(result).toEqualRight(true);
     });
   });
 });

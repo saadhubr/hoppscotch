@@ -9,22 +9,38 @@
         v-model="email"
         :label="t('users.email_address')"
         input-styles="floating-input"
-        @submit="sendInvite"
+        @submit="emit('send-invite', email)"
       />
     </template>
     <template #footer>
-      <span class="flex space-x-2">
-        <HoppButtonPrimary
-          :label="t('users.send_invite')"
-          @click="sendInvite"
-        />
-        <HoppButtonSecondary
-          :label="t('users.cancel')"
-          outline
-          filled
-          @click="hideModal"
-        />
-      </span>
+      <div class="w-full">
+        <p class="text-secondaryLight mb-5 text-center">
+          {{ t('users.invite_users_description') }}
+        </p>
+
+        <div class="flex justify-between">
+          <HoppButtonSecondary
+            v-tippy="{ theme: 'tooltip', allowHTML: true }"
+            to="https://docs.hoppscotch.io/documentation/self-host/community-edition/admin-dashboard#invite-users-to-your-hoppscotch-instance"
+            blank
+            :title="t('support.documentation')"
+            :icon="IconCircleHelp"
+            class="rounded hover:bg-primaryDark focus-visible:bg-primaryDark"
+          />
+          <span class="flex space-x-2">
+            <HoppButtonPrimary
+              :label="t('users.add_user')"
+              @click="emit('send-invite', email)"
+            />
+            <HoppButtonSecondary
+              :label="t('users.cancel')"
+              outline
+              filled
+              @click="hideModal"
+            />
+          </span>
+        </div>
+      </div>
     </template>
   </HoppSmartModal>
 </template>
@@ -32,25 +48,21 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useI18n } from '~/composables/i18n';
-import { useToast } from '~/composables/toast';
+import IconCircleHelp from '~icons/lucide/circle-help';
 
 const t = useI18n();
-const toast = useToast();
 
 const emit = defineEmits<{
   (event: 'hide-modal'): void;
   (event: 'send-invite', email: string): void;
+  (event: 'copy-invite-link', email: string): void;
+}>();
+
+defineProps<{
+  smtpEnabled: boolean;
 }>();
 
 const email = ref('');
-
-const sendInvite = () => {
-  if (email.value.trim() === '') {
-    toast.error(t('users.valid_email'));
-    return;
-  }
-  emit('send-invite', email.value);
-};
 
 const hideModal = () => {
   emit('hide-modal');

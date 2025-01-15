@@ -11,6 +11,7 @@ import {
   EditorState,
   Compartment,
   EditorSelection,
+  Prec,
 } from "@codemirror/state"
 import {
   Language,
@@ -24,7 +25,7 @@ import { linter } from "@codemirror/lint"
 import { watch, ref, Ref, onMounted, onBeforeUnmount } from "vue"
 import { javascriptLanguage } from "@codemirror/lang-javascript"
 import { xmlLanguage } from "@codemirror/lang-xml"
-import { jsonLanguage } from "@codemirror/lang-json"
+import { jsoncLanguage } from "@shopify/lang-jsonc"
 import { GQLLanguage } from "@hoppscotch/codemirror-lang-graphql"
 import { html } from "@codemirror/legacy-modes/mode/xml"
 import { shell } from "@codemirror/legacy-modes/mode/shell"
@@ -46,9 +47,11 @@ import { useDebounceFn } from "@vueuse/core"
 // TODO: Migrate from legacy mode
 
 import * as E from "fp-ts/Either"
+import { HoppPredefinedVariablesPlugin } from "~/helpers/editor/extensions/HoppPredefinedVariables"
 
 type ExtendedEditorConfig = {
   mode: string
+  useLang: boolean
   placeholder: string
   readOnly: boolean
   lineWrapping: boolean
@@ -62,12 +65,19 @@ type CodeMirrorOptions = {
   // NOTE: This property is not reactive
   environmentHighlights: boolean
 
+  /**
+   * Whether or not to highlight predefined variables, such as: `<<$guid>>`.
+   * - These are special variables that starts with a dolar sign.
+   */
+  predefinedVariablesHighlights?: boolean
+
   additionalExts?: Extension[]
 
   contextMenuEnabled?: boolean
 
   // callback on editor update
   onUpdate?: (view: ViewUpdate) => void
+  onChange?: (value: string) => void
 
   // callback on view initialization
   onInit?: (view: EditorView) => void
@@ -149,7 +159,7 @@ const hoppLang = (
 
 const getLanguage = (langMime: string): Language | null => {
   if (isJSONContentType(langMime)) {
-    return jsonLanguage
+    return jsoncLanguage
   } else if (langMime === "application/javascript") {
     return javascriptLanguage
   } else if (langMime === "graphql") {
@@ -218,6 +228,8 @@ export function useCodemirror(
 
   // Set default value for contextMenuEnabled if not provided
   options.contextMenuEnabled = options.contextMenuEnabled ?? true
+  options.extendedEditorConfig.useLang =
+    options.extendedEditorConfig.useLang ?? true
 
   const additionalExts = new Compartment()
   const language = new Compartment()
@@ -241,11 +253,31 @@ export function useCodemirror(
     ? new HoppEnvironmentPlugin(subscribeToStream, view)
     : null
 
+  const closeContextMenu = () => {
+    invokeAction("contextmenu.open", {
+      position: {
+        top: 0,
+        left: 0,
+      },
+      text: null,
+    })
+  }
+  const predefinedVariable: HoppPredefinedVariablesPlugin | null =
+    options.predefinedVariablesHighlights
+      ? new HoppPredefinedVariablesPlugin()
+      : null
+
   function handleTextSelection() {
     const selection = view.value?.state.selection.main
     if (selection) {
       const { from, to } = selection
-      if (from === to) return
+
+      // If the selection is empty, hide the context menu
+      if (from === to) {
+        closeContextMenu()
+        return
+      }
+
       const text = view.value?.state.doc.sliceString(from, to)
       const coords = view.value?.coordsAtPos(from)
       const top = coords?.top ?? 0
@@ -259,13 +291,7 @@ export function useCodemirror(
           text,
         })
       } else {
-        invokeAction("contextmenu.open", {
-          position: {
-            top,
-            left,
-          },
-          text: null,
-        })
+        closeContextMenu()
       }
     }
   }
@@ -297,19 +323,12 @@ export function useCodemirror(
               options.onUpdate(update)
             }
 
-            if (update.selectionSet) {
-              const cursorPos = update.state.selection.main.head
-              const line = update.state.doc.lineAt(cursorPos)
+            const cursorPos = update.state.selection.main.head
+            const line = update.state.doc.lineAt(cursorPos)
 
-              cachedCursor.value = {
-                line: line.number - 1,
-                ch: cursorPos - line.from,
-              }
-
-              cursor.value = {
-                line: cachedCursor.value.line,
-                ch: cachedCursor.value.ch,
-              }
+            cachedCursor.value = {
+              line: line.number - 1,
+              ch: cursorPos - line.from,
             }
 
             cursor.value = {
@@ -322,15 +341,22 @@ export function useCodemirror(
               cachedValue.value = update.state.doc
                 .toJSON()
                 .join(update.state.lineBreak)
-              if (!options.extendedEditorConfig.readOnly)
+              if (!options.extendedEditorConfig.readOnly) {
                 value.value = cachedValue.value
+                if (options.onChange) {
+                  options.onChange(cachedValue.value)
+                }
+              }
             }
           }
         }
       ),
 
       EditorView.domEventHandlers({
-        scroll(event) {
+        scroll(event, view) {
+          // HACK: This is a workaround to fix the issue in CodeMirror where the content doesn't load when the editor is not in view.
+          view.requestMeasure()
+
           if (event.target && options.contextMenuEnabled) {
             // Debounce to make the performance better
             debouncedTextSelection(30)()
@@ -348,7 +374,9 @@ export function useCodemirror(
       ),
       language.of(
         getEditorLanguage(
-          options.extendedEditorConfig.mode ?? "",
+          options.extendedEditorConfig.useLang
+            ? ((options.extendedEditorConfig.mode as any) ?? "")
+            : "",
           options.linter ?? undefined,
           options.completer ?? undefined
         )
@@ -371,6 +399,15 @@ export function useCodemirror(
           run: indentLess,
         },
       ]),
+      Prec.highest(
+        keymap.of([
+          {
+            key: "Cmd-Enter" /* macOS */ || "Ctrl-Enter" /* Windows */,
+            preventDefault: true,
+            run: () => true,
+          },
+        ])
+      ),
       tooltips({
         parent: document.body,
         position: "absolute",
@@ -380,6 +417,7 @@ export function useCodemirror(
     ]
 
     if (environmentTooltip) extensions.push(environmentTooltip.extension)
+    if (predefinedVariable) extensions.push(predefinedVariable.extension)
 
     view.value = new EditorView({
       parent: el,
@@ -387,6 +425,8 @@ export function useCodemirror(
         doc: parseDoc(value.value, options.extendedEditorConfig.mode ?? ""),
         extensions,
       }),
+      // scroll to top when mounting
+      scrollTo: EditorView.scrollIntoView(0),
     })
 
     options.onInit?.(view.value)
@@ -445,7 +485,9 @@ export function useCodemirror(
       view.value?.dispatch({
         effects: language.reconfigure(
           getEditorLanguage(
-            (options.extendedEditorConfig.mode as any) ?? "",
+            options.extendedEditorConfig.useLang
+              ? ((options.extendedEditorConfig.mode as any) ?? "")
+              : "",
             options.linter ?? undefined,
             options.completer ?? undefined
           )

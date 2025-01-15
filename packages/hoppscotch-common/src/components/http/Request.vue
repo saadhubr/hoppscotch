@@ -70,9 +70,11 @@
         :title="`${t(
           'action.send'
         )} <kbd>${getSpecialKey()}</kbd><kbd>↩</kbd>`"
-        :label="`${!loading ? t('action.send') : t('action.cancel')}`"
+        :label="`${
+          !isTabResponseLoading ? t('action.send') : t('action.cancel')
+        }`"
         class="min-w-[5rem] flex-1 rounded-r-none"
-        @click="!loading ? newSendRequest() : cancelRequest()"
+        @click="!isTabResponseLoading ? newSendRequest() : cancelRequest()"
       />
       <span class="flex">
         <tippy
@@ -238,7 +240,7 @@ import { useReadonlyStream, useStreamSubscriber } from "@composables/stream"
 import { useToast } from "@composables/toast"
 import { useVModel } from "@vueuse/core"
 import * as E from "fp-ts/Either"
-import { Ref, computed, ref, onUnmounted } from "vue"
+import { computed, ref, onUnmounted } from "vue"
 import { defineActionHandler, invokeAction } from "~/helpers/actions"
 import { runMutation } from "~/helpers/backend/GQLClient"
 import { UpdateRequestDocument } from "~/helpers/backend/graphql"
@@ -261,7 +263,7 @@ import { useService } from "dioc/vue"
 import { InspectionService } from "~/services/inspection"
 import { InterceptorService } from "~/services/interceptor.service"
 import { HoppTab } from "~/services/tab"
-import { HoppRESTDocument } from "~/helpers/rest/document"
+import { HoppRequestDocument } from "~/helpers/rest/document"
 import { RESTTabService } from "~/services/tab/rest"
 import { getMethodLabelColor } from "~/helpers/rest/labelColoring"
 import { WorkspaceService } from "~/services/workspace.service"
@@ -286,7 +288,7 @@ const toast = useToast()
 
 const { subscribeToStream } = useStreamSubscriber()
 
-const props = defineProps<{ modelValue: HoppTab<HoppRESTDocument> }>()
+const props = defineProps<{ modelValue: HoppTab<HoppRequestDocument> }>()
 const emit = defineEmits(["update:modelValue"])
 
 const tab = useVModel(props, "modelValue", emit)
@@ -301,6 +303,10 @@ const newMethod = computed(() => {
 const curlText = ref("")
 
 const loading = ref(false)
+
+const isTabResponseLoading = computed(
+  () => tab.value.document.response?.type === "loading"
+)
 
 const showCurlImportModal = ref(false)
 const showCodegenModal = ref(false)
@@ -317,8 +323,6 @@ const copyRequestAction = ref<any | null>(null)
 const saveRequestAction = ref<any | null>(null)
 
 const history = useReadonlyStream<RESTHistoryEntry[]>(restHistory$, [])
-
-const requestCancelFunc: Ref<(() => void) | null> = ref(null)
 
 const userHistories = computed(() => {
   return history.value.map((history) => history.request.endpoint).slice(0, 10)
@@ -351,7 +355,8 @@ const newSendRequest = async () => {
   const [cancel, streamPromise] = runRESTRequest$(tab)
   const streamResult = await streamPromise
 
-  requestCancelFunc.value = cancel
+  tab.value.document.cancelFunction = cancel
+
   if (E.isRight(streamResult)) {
     subscribeToStream(
       streamResult.right,
@@ -441,7 +446,7 @@ onUnmounted(() => {
 
 const cancelRequest = () => {
   loading.value = false
-  requestCancelFunc.value?.()
+  tab.value.document.cancelFunction?.()
 
   updateRESTResponse(null)
 }
@@ -578,10 +583,10 @@ defineActionHandler("request.reset", clearContent)
 defineActionHandler("request.share-request", shareRequest)
 defineActionHandler("request.method.next", cycleDownMethod)
 defineActionHandler("request.method.prev", cycleUpMethod)
-defineActionHandler("request.save", saveRequest)
+defineActionHandler("request-response.save", saveRequest)
 defineActionHandler("request.save-as", (req) => {
   showSaveRequestModal.value = true
-  if (req?.requestType === "rest") {
+  if (req?.requestType === "rest" && req.request) {
     request.value = req.request
   }
 })

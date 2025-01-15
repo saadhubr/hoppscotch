@@ -1,57 +1,56 @@
 <template>
-  <div class="h-full">
-    <HoppSmartTabs
-      v-model="selectedOptionTab"
-      styles="sticky top-0 bg-primary z-10 border-b-0"
-      :render-inactive-tabs="true"
+  <HoppSmartTabs
+    v-model="selectedOptionTab"
+    styles="sticky bg-primary top-0 z-10 border-b-0"
+    :render-inactive-tabs="true"
+  >
+    <HoppSmartTab
+      :id="'query'"
+      :label="`${t('tab.query')}`"
+      :indicator="request.query && request.query.length > 0 ? true : false"
     >
-      <HoppSmartTab
-        :id="'query'"
-        :label="`${t('tab.query')}`"
-        :indicator="request.query && request.query.length > 0 ? true : false"
-      >
-        <GraphqlQuery
-          v-model="request.query"
-          @run-query="runQuery"
-          @save-request="saveRequest"
-        />
-      </HoppSmartTab>
-      <HoppSmartTab
-        :id="'variables'"
-        :label="`${t('tab.variables')}`"
-        :indicator="
-          request.variables && request.variables.length > 0 ? true : false
-        "
-      >
-        <GraphqlVariable
-          v-model="request.variables"
-          @run-query="runQuery"
-          @save-request="saveRequest"
-        />
-      </HoppSmartTab>
-      <HoppSmartTab
-        :id="'headers'"
-        :label="`${t('tab.headers')}`"
-        :info="activeGQLHeadersCount === 0 ? null : `${activeGQLHeadersCount}`"
-      >
-        <GraphqlHeaders
-          v-model="request"
-          :inherited-properties="inheritedProperties"
-        />
-      </HoppSmartTab>
-      <HoppSmartTab :id="'authorization'" :label="`${t('tab.authorization')}`">
-        <GraphqlAuthorization
-          v-model="request.auth"
-          :inherited-properties="inheritedProperties"
-        />
-      </HoppSmartTab>
-    </HoppSmartTabs>
-    <CollectionsSaveRequest
-      mode="graphql"
-      :show="showSaveRequestModal"
-      @hide-modal="hideRequestModal"
-    />
-  </div>
+      <GraphqlQuery
+        v-model="request.query"
+        @run-query="runQuery"
+        @save-request="saveRequest"
+      />
+    </HoppSmartTab>
+    <HoppSmartTab
+      :id="'variables'"
+      :label="`${t('tab.variables')}`"
+      :indicator="
+        request.variables && request.variables.length > 0 ? true : false
+      "
+    >
+      <GraphqlVariable
+        v-model="request.variables"
+        @run-query="runQuery"
+        @save-request="saveRequest"
+      />
+    </HoppSmartTab>
+    <HoppSmartTab
+      :id="'headers'"
+      :label="`${t('tab.headers')}`"
+      :info="activeGQLHeadersCount === 0 ? null : `${activeGQLHeadersCount}`"
+    >
+      <GraphqlHeaders
+        v-model="request"
+        :inherited-properties="inheritedProperties"
+        @change-tab="changeOptionTab"
+      />
+    </HoppSmartTab>
+    <HoppSmartTab :id="'authorization'" :label="`${t('tab.authorization')}`">
+      <GraphqlAuthorization
+        v-model="request.auth"
+        :inherited-properties="inheritedProperties"
+      />
+    </HoppSmartTab>
+  </HoppSmartTabs>
+  <CollectionsSaveRequest
+    mode="graphql"
+    :show="showSaveRequestModal"
+    @hide-modal="hideRequestModal"
+  />
 </template>
 
 <script setup lang="ts">
@@ -76,6 +75,7 @@ import { InterceptorService } from "~/services/interceptor.service"
 import { editGraphqlRequest } from "~/newstore/collections"
 import { GQLTabService } from "~/services/tab/graphql"
 import { HoppInheritedProperty } from "~/helpers/types/HoppInheritedProperties"
+import { HoppRESTHeaders } from "@hoppscotch/data"
 
 const VALID_GQL_OPERATIONS = [
   "query",
@@ -159,7 +159,10 @@ const runQuery = async (
     let runHeaders: HoppGQLRequest["headers"] = []
 
     if (inheritedHeaders) {
-      runHeaders = [...inheritedHeaders, ...clone(request.value.headers)]
+      runHeaders = [
+        ...inheritedHeaders,
+        ...clone(request.value.headers),
+      ] as HoppRESTHeaders
     } else {
       runHeaders = clone(request.value.headers)
     }
@@ -221,7 +224,10 @@ watch(
 watch(
   () => connection,
   (newVal) => {
-    if (newVal.error && newVal.state === "DISCONNECTED") {
+    if (
+      newVal.error &&
+      (newVal.state === "DISCONNECTED" || newVal.state === "ERROR")
+    ) {
       const response = [
         {
           type: "error",
@@ -261,8 +267,13 @@ const saveRequest = () => {
 const clearGQLQuery = () => {
   request.value.query = ""
 }
+
+const changeOptionTab = (e: GQLOptionTabs) => {
+  selectedOptionTab.value = e
+}
+
 defineActionHandler("request.send-cancel", runQuery)
-defineActionHandler("request.save", saveRequest)
+defineActionHandler("request-response.save", saveRequest)
 defineActionHandler("request.save-as", () => {
   showSaveRequestModal.value = true
 })

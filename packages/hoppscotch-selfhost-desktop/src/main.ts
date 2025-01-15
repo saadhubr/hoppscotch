@@ -14,6 +14,7 @@ import { appWindow } from "@tauri-apps/api/window"
 import { stdFooterItems } from "@hoppscotch/common/platform/std/ui/footerItem"
 import { stdSupportOptionItems } from "@hoppscotch/common/platform/std/ui/supportOptionsItem"
 import { ioDef } from "./platform/io"
+import { interopModule } from "./interop"
 
 const headerPaddingLeft = ref("0px")
 const headerPaddingTop = ref("0px")
@@ -45,11 +46,15 @@ const headerPaddingTop = ref("0px")
       settings: settingsDef,
       history: historyDef,
     },
+    addedHoppModules: [interopModule],
     interceptors: {
       default: "native",
       interceptors: [
         { type: "service", service: NativeInterceptorService },
-        { type: "standalone", interceptor: proxyInterceptor },
+        {
+          type: "standalone",
+          interceptor: { ...proxyInterceptor, supportsDigestAuth: true },
+        },
       ],
     },
     platformFeatureFlags: {

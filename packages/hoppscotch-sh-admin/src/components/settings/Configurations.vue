@@ -1,7 +1,8 @@
 <template>
-  <div>
+  <div class="flex flex-col space-y-8 divide-y divide-divider">
     <SettingsAuthProvider v-model:config="workingConfigs" />
     <SettingsSmtpConfiguration v-model:config="workingConfigs" />
+    <SettingsHistoryConfiguration v-model:config="workingConfigs" />
     <SettingsDataSharing v-model:config="workingConfigs" />
     <SettingsReset />
   </div>
